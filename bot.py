@@ -6,16 +6,13 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 TOKEN = os.getenv("BOT_TOKEN")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
 def create_jmx_file(target_url, threads, duration, rampup):
     """JMeter test planı oluşturur"""
     
-    # URL parsing
     if not target_url.startswith(('http://', 'https://')):
         target_url = 'https://' + target_url
     
-    # Domain ve path ayırma
     from urllib.parse import urlparse
     parsed = urlparse(target_url)
     domain = parsed.netloc
@@ -29,7 +26,6 @@ def create_jmx_file(target_url, threads, duration, rampup):
       <elementProp name="TestPlan.user_defined_variables" elementType="Arguments">
         <collectionProp name="Arguments.arguments"/>
       </elementProp>
-      <stringProp name="TestPlan.comments"></stringProp>
     </TestPlan>
     <hashTree>
       <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="{threads} Users">
@@ -112,7 +108,7 @@ def run_jmeter_test(jmx_path, jtl_path):
         cmd,
         capture_output=True,
         text=True,
-        timeout=300  # 5 dakika timeout
+        timeout=300
     )
     return result
 
@@ -127,7 +123,6 @@ def parse_results(jtl_path):
         with open(jtl_path, 'r') as f:
             lines = f.readlines()
             
-        # İlk satır header
         for line in lines[1:]:
             parts = line.strip().split(',')
             if len(parts) >= 8:
@@ -138,7 +133,6 @@ def parse_results(jtl_path):
                 else:
                     failed += 1
                 
-                # Response time (column 1)
                 try:
                     times.append(int(parts[1]))
                 except:
@@ -153,7 +147,6 @@ def parse_results(jtl_path):
     min_time = min(times)
     max_time = max(times)
     
-    # Percentile hesaplama
     sorted_times = sorted(times)
     p95_idx = int(len(sorted_times) * 0.95)
     p99_idx = int(len(sorted_times) * 0.99)
@@ -187,7 +180,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Argüman parsing
     args = context.args
     
     if not args:
@@ -203,7 +195,6 @@ async def test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     duration = int(args[2]) if len(args) > 2 else 30
     rampup = int(args[3]) if len(args) > 3 else 5
     
-    # Limitler (Railway kaynakları için)
     if threads > 500:
         await update.message.reply_text("❌ Maksimum 500 kullanıcı!")
         return
@@ -222,14 +213,12 @@ async def test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
     try:
-        # Geçici dosyalar
         with tempfile.NamedTemporaryFile(mode='w', suffix='.jmx', delete=False) as f:
             jmx_path = f.name
             f.write(create_jmx_file(target, threads, duration, rampup))
         
         jtl_path = f"/tmp/result_{int(time.time())}.jtl"
         
-        # JMeter çalıştır
         start_time = time.time()
         result = run_jmeter_test(jmx_path, jtl_path)
         elapsed = round(time.time() - start_time, 2)
@@ -242,14 +231,12 @@ async def test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
         
-        # Sonuçları parse et
         results, error = parse_results(jtl_path)
         
         if error:
             await update.message.reply_text(f"❌ Sonuç analiz hatası: {error}")
             return
         
-        # Rapor oluştur
         report = (
             f"📊 **Test Sonuçları**\n\n"
             f"🌐 Hedef: `{target}`\n"
@@ -274,7 +261,6 @@ async def test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"❌ Hata: {str(e)}")
     finally:
-        # Temizlik
         for f in [jmx_path, jtl_path]:
             try:
                 if os.path.exists(f):
@@ -288,13 +274,10 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("test", test_command))
     
-    # Railway webhook
-    PORT = int(os.getenv("PORT", 8080))
-    app.run_webhook(
-        listen="0.0.0.0",
-        port=PORT,
-        webhook_url=WEBHOOK_URL
-    )
+    # POLLING MODU - Webhook yerine
+    print("🤖 Bot polling modunda başlıyor...")
+    app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     main()
+    
