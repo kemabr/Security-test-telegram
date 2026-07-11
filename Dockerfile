@@ -1,4 +1,4 @@
-FROM openjdk:17-slim
+FROM eclipse-temurin:17-jre-jammy
 
 # Sistem paketleri
 RUN apt-get update && apt-get install -y \
