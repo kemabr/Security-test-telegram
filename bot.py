@@ -50,7 +50,7 @@ async def heavy_api_request(session, url, token, results):
             ssl=False
         ) as resp:
             body = await resp.read()
-            elapsed = (time.time() - req_start) * 10000
+            elapsed = (time.time() - req_start) * 1000
             
             results['total'] += 1
             results['status_codes'][resp.status] = results['status_codes'].get(resp.status, 0) + 1
@@ -74,10 +74,11 @@ async def api_worker(session, url, token, end_time, results, semaphore):
     while time.time() < end_time:
         async with semaphore:
             await heavy_api_request(session, url, token, results)
+        # Minimum bekleme - maksimum yük
         await asyncio.sleep(0.01)
 
 async def run_api_test(base_url, endpoint, username, password, threads, duration, rampup):
-    """Gerçek API testi - login + token"""
+    """Gerçek API testi"""
     
     results = {
         'total': 0,
@@ -100,7 +101,7 @@ async def run_api_test(base_url, endpoint, username, password, threads, duration
         # LOGIN
         token, error = await get_token(session, base_url, username, password)
         if not token:
-            return None, f"❌ Giriş başarısız: {error}"
+            return None, f"❌ Login başarısız: {error}"
         
         # API TEST
         target_url = f"{base_url}{endpoint}"
@@ -131,14 +132,14 @@ async def run_api_test(base_url, endpoint, username, password, threads, duration
         return results, elapsed
 
 def format_results(results, elapsed, target):
-    """Netijeleri formatla"""
+    """Sonuçları formatla"""
     
     if results is None:
         return f"❌ Test başarısız: {target}"
     
     if not results['times']:
         errors = "\n".join(f"├ `{e}`" for e in results['errors'][:3]) if results['errors'] else "Bilinmeyen hata"
-        return f"❌ Test tamamlandı ama netije alynmadı.\n\n**Hatalar:**\n{errors}"
+        return f"❌ Sonuç alınamadı.\n\n**Hatalar:**\n{errors}"
     
     times = results['times']
     total = results['total']
@@ -164,35 +165,35 @@ def format_results(results, elapsed, target):
     error_str = ""
     if results['errors']:
         unique = list(dict.fromkeys(results['errors']))[:3]
-        error_str = "\n\n⚠️ **Mysal Hatalar**\n" + "\n".join(f"├ `{e}`" for e in unique)
+        error_str = "\n\n⚠️ **Örnek Hatalar**\n" + "\n".join(f"├ `{e}`" for e in unique)
     
-    # Yük bahaýlandyrmasy
+    # Yük değerlendirmesi
     load_status = "🟢 Normal"
     if avg_time > 500:
-        load_status = "🟡 Yawaş"
+        load_status = "🟡 Yavaş"
     if avg_time > 1000:
-        load_status = "🟠 Agır"
+        load_status = "🟠 Ağır"
     if avg_time > 2000:
         load_status = "🔴 Kritik"
     if error_rate > 5:
         load_status = "💀 Çöküş"
     
     return (
-        f"🔥 **GERÇEK API TEST NETIJELERI**\n"
-        f"📊 Yük Durumy: {load_status}\n\n"
+        f"🔥 **GERÇEK API TEST SONUÇLARI**\n"
+        f"📊 Yük Durumu: {load_status}\n\n"
         f"🌐 Hedef: `{target}`\n"
         f"⏱️ Süre: {round(elapsed, 1)} sn\n"
         f"🚀 RPS: {rps}\n"
-        f"📦 Maglumat: {mb_received} MB\n\n"
-        f"📈 **Statistika**\n"
-        f"├ Jemi: {total}\n"
-        f"├ ✅ Üstünlikli: {success}\n"
-        f"├ ❌ Üstünliksiz: {failed}\n"
-        f"├ 📉 Ýalňyşlyk: %{round(error_rate, 2)}{status_str}\n\n"
-        f"⏱️ **Jogap Wagtlary (ms)**\n"
-        f"├ Ortaça: {round(avg_time, 1)}\n"
-        f"├ Iň az: {round(min_time, 1)}\n"
-        f"├ Iň köp: {round(max_time, 1)}\n"
+        f"📦 Veri: {mb_received} MB\n\n"
+        f"📈 **İstatistikler**\n"
+        f"├ Toplam: {total}\n"
+        f"├ ✅ Başarılı: {success}\n"
+        f"├ ❌ Başarısız: {failed}\n"
+        f"├ 📉 Hata: %{round(error_rate, 2)}{status_str}\n\n"
+        f"⏱️ **Yanıt Süreleri (ms)**\n"
+        f"├ Ort: {round(avg_time, 1)}\n"
+        f"├ Min: {round(min_time, 1)}\n"
+        f"├ Max: {round(max_time, 1)}\n"
         f"├ P95: {round(p95, 1)}\n"
         f"├ P99: {round(p99, 1)}"
         f"{error_str}"
@@ -200,15 +201,14 @@ def format_results(results, elapsed, target):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "🚀 **Ýük Test Boty v5 - GERÇEK API TESTI**\n\n"
-        "**Buýruklar:**\n\n"
-        "`/test site.com [ulanyjy] [süre] [rampup]`\n"
-        "→ Ýönekeý HTTP testi\n\n"
-        "`/api site.com:port /endpoint ulanyjy açarsöz [thread] [süre] [rampup]`\n"
-        "→ **Giriş + Token + Agır API testi**\n\n"
-        "**Mysallar:**\n"
-        "`/test httpbin.org 50 30 10`\n"
-        "`/api vipsecure.dev:448 /api/users admin açarsöz123 50 30 10`",
+        "🚀 **Load Test Bot v5 - AĞIR YÜK**\n\n"
+        "**Komutlar:**\n\n"
+        "`/test site.com [thread] [sure] [rampup]`\n"
+        "→ Basit HTTP testi\n\n"
+        "`/api site.com:port /endpoint kullanici sifre [thread] [sure] [rampup]`\n"
+        "→ **Login + Token + Ağır API testi**\n\n"
+        "**Örnek:**\n"
+        "`/api vipsecure.dev:448 /api/users admin sifre 100 60 15`",
         parse_mode='Markdown'
     )
 
@@ -216,13 +216,13 @@ async def test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     
     if active_tests.get(chat_id):
-        await update.message.reply_text("⏳ Eýýäm test işleýär!")
+        await update.message.reply_text("⏳ Zaten test çalışıyor!")
         return
     
     args = context.args
     if not args:
         await update.message.reply_text(
-            "❌ `/test site.com [ulanyjy] [süre] [rampup]`",
+            "❌ `/test site.com [thread] [sure] [rampup]`",
             parse_mode='Markdown'
         )
         return
@@ -235,14 +235,15 @@ async def test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     active_tests[chat_id] = True
     
     msg = await update.message.reply_text(
-        f"🚀 **HTTP Test Başlaýar**\n\n"
+        f"🚀 **HTTP Test**\n\n"
         f"🌐 `{target}`\n"
         f"👥 {threads} | ⏱️ {duration}s | 📈 {rampup}s\n\n"
-        f"⏳ Işleýär...",
+        f"⏳ Çalışıyor...",
         parse_mode='Markdown'
     )
     
     try:
+        # Basit HTTP test
         results = {
             'total': 0, 'success': 0, 'failed': 0,
             'times': [], 'status_codes': {}, 'errors': [],
@@ -316,20 +317,20 @@ async def simple_worker(session, url, end_time, results, semaphore):
         await asyncio.sleep(0.05)
 
 async def api_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Gerçek API testi - giriş + token + agır yük"""
+    """Gerçek API testi - login + token + ağır yük"""
     chat_id = update.effective_chat.id
     
     if active_tests.get(chat_id):
-        await update.message.reply_text("⏳ Eýýäm test işleýär!")
+        await update.message.reply_text("⏳ Zaten test çalışıyor!")
         return
     
     args = context.args
     if len(args) < 4:
         await update.message.reply_text(
-            "❌ Ulanmak:\n"
-            "`/api site.com:port /endpoint ulanyjy açarsöz [thread] [süre] [rampup]`\n\n"
-            "Mysal:\n"
-            "`/api vipsecure.dev:448 /api/users admin açarsöz123 50 30 10`",
+            "❌ Kullanım:\n"
+            "`/api site.com:port /endpoint kullanici sifre [thread] [sure] [rampup]`\n\n"
+            "Örnek:\n"
+            "`/api vipsecure.dev:448 /api/users admin sifre123 100 60 15`",
             parse_mode='Markdown'
         )
         return
@@ -354,12 +355,12 @@ async def api_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     active_tests[chat_id] = True
     
     msg = await update.message.reply_text(
-        f"🔥 **GERÇEK API TESTI**\n\n"
+        f"🔥 **AĞIR API TESTİ**\n\n"
         f"🌐 `{target}`\n"
-        f"👤 Ulanyjy: `{username}`\n"
+        f"👤 Kullanıcı: `{username}`\n"
         f"👥 Thread: {threads} | ⏱️ {duration}s | 📈 {rampup}s\n\n"
-        f"⚠️ Bu test hakykatdanam backend-i zorlaýar!\n"
-        f"🔐 Giriş edilýär...",
+        f"⚠️ Bu test gerçekten backend'i zorlar!\n"
+        f"🔐 Login yapılıyor...",
         parse_mode='Markdown'
     )
     
@@ -375,175 +376,16 @@ async def api_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     finally:
         active_tests[chat_id] = False
 
-async def kill_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Iň agyr test - maglumat bazasy + CPU + RAM"""
-    chat_id = update.effective_chat.id
-    
-    if active_tests.get(chat_id):
-        await update.message.reply_text("⏳ Eýýäm test işleýär!")
-        return
-    
-    args = context.args
-    if len(args) < 4:
-        await update.message.reply_text(
-            "❌ Ulanmak:\n"
-            "`/kill site.com:port /endpoint ulanyjy açarsöz [thread] [süre]`\n\n"
-            "Mysal:\n"
-            "`/kill vipsecure.dev:448 /api/users admin açarsöz 200 60`",
-            parse_mode='Markdown'
-        )
-        return
-    
-    host_port = args[0]
-    endpoint = args[1]
-    username = args[2]
-    password = args[3]
-    threads = min(int(args[4]) if len(args) > 4 else 100, 1000)
-    duration = min(int(args[5]) if len(args) > 5 else 30, 120)
-    
-    if ':' in host_port:
-        host, port = host_port.split(':')
-        base_url = f"https://{host}:{port}"
-    else:
-        base_url = f"https://{host_port}"
-    
-    active_tests[chat_id] = True
-    
-    msg = await update.message.reply_text(
-        f"💀 **KILL SWITCH TEST**\n\n"
-        f"🌐 `{base_url}`\n"
-        f"👤 `{username}`\n"
-        f"🔥 Thread: {threads}\n"
-        f"⏱️ Süre: {duration}s\n\n"
-        f"⚠️ Maglumat bazasy + CPU + RAM bir wagtda!\n"
-        f"⏳ Başlaýar...",
-        parse_mode='Markdown'
-    )
-    
-    try:
-        results, elapsed = await run_kill_test(base_url, username, password, threads, duration)
-        
-        rps = round((results['success'] + results['failed']) / elapsed, 2) if elapsed > 0 else 0
-        mb = round(results['bytes'] / (1024*1024), 2)
-        
-        report = (
-            f"💀 **KILL SWITCH NETIJELERI**\n\n"
-            f"🌐 `{base_url}`\n"
-            f"⏱️ Süre: {round(elapsed, 1)} sn\n"
-            f"🚀 RPS: {rps}\n"
-            f"📦 Maglumat: {mb} MB\n\n"
-            f"📈 **Statistika**\n"
-            f"├ ✅ Üstünlikli: {results['success']}\n"
-            f"├ ❌ Üstünliksiz: {results['failed']}\n"
-            f"├ 📉 Ýalňyşlyk: %{round(results['failed']/(results['success']+results['failed'])*100, 2) if (results['success']+results['failed']) > 0 else 0}\n\n"
-            f"⚠️ Bu test maglumat bazasy baglanyşygy + CPU + RAM zorlady!"
-        )
-        
-        await msg.edit_text(report, parse_mode='Markdown')
-        
-    except Exception as e:
-        await msg.edit_text(f"❌ Hata: {str(e)[:200]}")
-    finally:
-        active_tests[chat_id] = False
-
-async def run_kill_test(base_url, username, password, threads, duration):
-    """Iň ölümçil test"""
-    
-    results = {
-        'success': 0,
-        'failed': 0,
-        'bytes': 0,
-        'start_time': time.time()
-    }
-    
-    connector = aiohttp.TCPConnector(
-        limit=threads * 10,
-        limit_per_host=threads * 5,
-        ttl_dns_cache=300,
-        use_dns_cache=True,
-    )
-    
-    async with aiohttp.ClientSession(connector=connector) as session:
-        end_time = time.time() + duration
-        
-        # Threadleri bir wagtda başlat
-        tasks = []
-        for i in range(threads):
-            task = asyncio.create_task(
-                burn_worker(session, base_url, username, password, end_time, results)
-            )
-            tasks.append(task)
-            
-            # Çalt ramp-up
-            if i < threads - 1:
-                await asyncio.sleep(0.1)
-        
-        await asyncio.gather(*tasks, return_exceptions=True)
-    
-    elapsed = time.time() - results['start_time']
-    return results, elapsed
-
-async def burn_worker(session, base_url, username, password, end_time, results):
-    """Yzygiderli giriş + agyr sorgu"""
-    while time.time() < end_time:
-        try:
-            size = await login_and_burn(session, base_url, username, password)
-            if size:
-                results['success'] += 1
-                results['bytes'] += size
-            else:
-                results['failed'] += 1
-        except:
-            results['failed'] += 1
-        
-        # Iň az garaşmak - iň ýokary yük
-        await asyncio.sleep(0.01)
-
-async def login_and_burn(session, base_url, username, password):
-    """Maglumat bazasy baglanyşygy + CPU + RAM bir wagtda"""
-    
-    # 1. GIRIŞ - Maglumat bazasy baglanyşygy + açar söz hash (CPU)
-    try:
-        login_data = {'username': username, 'password': password}
-        async with session.post(
-            f"{base_url}/api/admin/token",
-            data=login_data,
-            timeout=aiohttp.ClientTimeout(total=5),
-            ssl=False
-        ) as resp:
-            if resp.status == 200:
-                result = await resp.json()
-                token = result.get('access_token')
-            else:
-                return None
-    except:
-        return None
-    
-    # 2. AGYR SORGU - Uly maglumat (RAM + CPU + Maglumat bazasy)
-    headers = {'Authorization': f'Bearer {token}'}
-    
-    try:
-        async with session.get(
-            f"{base_url}/api/users?limit=100000",
-            headers=headers,
-            timeout=aiohttp.ClientTimeout(total=10),
-            ssl=False
-        ) as resp:
-            body = await resp.read()
-            return len(body)
-    except:
-        return None
-
 def main():
     app = Application.builder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("test", test_command))
     app.add_handler(CommandHandler("api", api_command))
-    app.add_handler(CommandHandler("kill", kill_command))
-    
-    print("🤖 Bot v5 - Türkmence + Kill Switch işjeň")
+    print("🤖 Bot v5 başladı - Ağır yük modu aktif")
     app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     main()
+
+    
             
