@@ -33,7 +33,7 @@ async def get_token(session, base_url, username, password):
         return None, str(e)[:100]
 
 async def heavy_api_request(session, url, token, results):
-    """Ağır API isteği - veritabanını zorlar"""
+    """Agyrr API isteği - yadyny zorlar"""
     req_start = time.time()
     
     headers = {
@@ -70,7 +70,7 @@ async def heavy_api_request(session, url, token, results):
             results['errors'].append(err)
 
 async def api_worker(session, url, token, end_time, results, semaphore):
-    """Sürekli ağır istek"""
+    """Surekli ağır istek"""
     while time.time() < end_time:
         async with semaphore:
             await heavy_api_request(session, url, token, results)
@@ -207,7 +207,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "→ Yonekey HTTP testi\n\n"
         "`/api site.com:port /endpoint user password [thread] [sure] [rampup]`\n"
         "→ **Login + Token + Agyr API testi**\n\n"
-        "**Örnek:**\n"
+        "**Mysal:**\n"
         "`/api paneliniz.com:448 /api/users admin password 100 60 15`",
         parse_mode='Markdown'
     )
