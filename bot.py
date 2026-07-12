@@ -50,7 +50,7 @@ async def heavy_api_request(session, url, token, results):
             ssl=False
         ) as resp:
             body = await resp.read()
-            elapsed = (time.time() - req_start) * 1000
+            elapsed = (time.time() - req_start) * 10000
             
             results['total'] += 1
             results['status_codes'][resp.status] = results['status_codes'].get(resp.status, 0) + 1
@@ -228,7 +228,7 @@ async def test_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     target = args[0]
-    threads = min(int(args[1]) if len(args) > 1 else 10, 1000)
+    threads = min(int(args[1]) if len(args) > 1 else 10, 10000)
     duration = min(int(args[2]) if len(args) > 2 else 30, 300)
     rampup = int(args[3]) if len(args) > 3 else 5
     
@@ -296,7 +296,7 @@ async def simple_worker(session, url, end_time, results, semaphore):
             try:
                 async with session.get(url, timeout=aiohttp.ClientTimeout(total=10), ssl=False) as resp:
                     body = await resp.read()
-                    elapsed = (time.time() - req_start) * 1000
+                    elapsed = (time.time() - req_start) * 10000
                     
                     results['total'] += 1
                     results['status_codes'][resp.status] = results['status_codes'].get(resp.status, 0) + 1
