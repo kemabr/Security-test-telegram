@@ -50,7 +50,7 @@ async def heavy_api_request(session, url, token, results):
             ssl=False
         ) as resp:
             body = await resp.read()
-            elapsed = (time.time() - req_start) * 1000
+            elapsed = (time.time() - req_start) * 10000
             
             results['total'] += 1
             results['status_codes'][resp.status] = results['status_codes'].get(resp.status, 0) + 1
